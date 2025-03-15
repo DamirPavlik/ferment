@@ -137,9 +137,69 @@ func (l *Lexer) Lex() (Position, Token, string) {
 		default:
 			if unicode.IsSpace(r) {
 				continue
+			} else if unicode.IsDigit(r) {
+				startPos := l.pos
+				l.backup()
+				lit := l.lexInt()
+				return startPos, INT, lit
+			} else if unicode.IsLetter(r) {
+				startPos := l.pos
+				l.backup()
+				lit := l.lexIdent()
+				return startPos, IDENT, lit
+			} else {
+				return l.pos, ILLEGAL, string(r)
 			}
 		}
 	}
+}
+
+func (l *Lexer) lexIdent() string {
+	var lit string
+	for {
+		r, _, err := l.reader.ReadRune()
+		if err != nil {
+			if err == io.EOF {
+				return lit
+			}
+		}
+
+		l.pos.column++
+		if unicode.IsLetter(r) {
+			lit = lit + string(r)
+		} else {
+			l.backup()
+			return lit
+		}
+	}
+}
+
+func (l *Lexer) lexInt() string {
+	var lit string
+	for {
+		r, _, err := l.reader.ReadRune()
+		if err != nil {
+			if err == io.EOF {
+				return lit
+			}
+		}
+
+		l.pos.column++
+		if unicode.IsDigit(r) {
+			lit = lit + string(r)
+		} else {
+			l.backup()
+			return lit
+		}
+	}
+}
+
+func (l *Lexer) backup() {
+	if err := l.reader.UnreadRune(); err != nil {
+		panic(err)
+	}
+
+	l.pos.column--
 }
 
 func (l *Lexer) resetPostion() {
