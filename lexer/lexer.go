@@ -2,7 +2,9 @@ package lexer
 
 import (
 	"bufio"
+	"fmt"
 	"io"
+	"os"
 	"unicode"
 )
 
@@ -16,6 +18,14 @@ type Position struct {
 type Lexer struct {
 	pos    Position
 	reader *bufio.Reader
+}
+
+func (p Position) Line() int {
+	return p.line
+}
+
+func (p Position) Column() int {
+	return p.column
 }
 
 const (
@@ -62,7 +72,6 @@ var tokens = []string{
 	ILLEGAL: "ILLEGAL",
 	IDENT:   "IDENT",
 	INT:     "INT",
-	STRING:  "STRING",
 
 	ASSIGN:   "=",
 	PLUS:     "+",
@@ -114,14 +123,11 @@ func (l *Lexer) Lex() (Position, Token, string) {
 			if err == io.EOF {
 				return l.pos, EOF, ""
 			}
-
 			panic(err)
 		}
 		l.pos.column++
 
 		switch r {
-		case '\n':
-			l.resetPostion()
 		case ';':
 			return l.pos, SEMICOLON, ";"
 		case '+':
@@ -133,7 +139,33 @@ func (l *Lexer) Lex() (Position, Token, string) {
 		case '/':
 			return l.pos, SLASH, "/"
 		case '=':
-			return l.pos, EQ, "="
+			nr, err := l.peek()
+			if err == nil && nr == '=' {
+				l.reader.ReadRune()
+				l.pos.column++
+				return l.pos, EQ, "=="
+			}
+			return l.pos, ASSIGN, "="
+		case '(':
+			return l.pos, LPAREN, "("
+		case ')':
+			return l.pos, RPAREN, ")"
+		case '{':
+			return l.pos, LBRACE, "{"
+		case '}':
+			return l.pos, RBRACE, "}"
+		case '<':
+			return l.pos, LT, "<"
+		case '>':
+			return l.pos, GT, ">"
+		case '!':
+			nr, err := l.peek()
+			if err == nil && nr == '=' {
+				l.reader.ReadRune()
+				l.pos.column++
+				return l.pos, NOT_EQ, "!="
+			}
+			return l.pos, BANG, "!"
 		default:
 			if unicode.IsSpace(r) {
 				continue
@@ -152,6 +184,19 @@ func (l *Lexer) Lex() (Position, Token, string) {
 			}
 		}
 	}
+}
+
+func (l *Lexer) peek() (rune, error) {
+	r, _, err := l.reader.ReadRune()
+	if err != nil {
+		return 0, nil
+	}
+
+	if err := l.reader.UnreadRune(); err != nil {
+		return 0, nil
+	}
+
+	return r, nil
 }
 
 func (l *Lexer) lexIdent() string {
@@ -205,4 +250,21 @@ func (l *Lexer) backup() {
 func (l *Lexer) resetPostion() {
 	l.pos.line++
 	l.pos.column = 0
+}
+
+func TestLexer() {
+	file, err := os.Open("input.test")
+	if err != nil {
+		panic(err)
+	}
+
+	lexer := NewLexer(file)
+	for {
+		pos, tok, lit := lexer.Lex()
+		if tok == EOF {
+			break
+		}
+
+		fmt.Printf("%d:%d\t%s\t%s\n", pos.line, pos.column, tok, lit)
+	}
 }
