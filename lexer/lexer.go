@@ -105,6 +105,25 @@ var tokens = []string{
 	FALSE:    "NETACNO",
 }
 
+var keywords = map[string]Token{
+	"POSTAVI":  LET,
+	"VRATI":    RETURN,
+	"FUNKCIJA": FUNCTION,
+	"AKO":      IF,
+	"INACE":    ELSE,
+	"DOK":      WHILE,
+	"ISPISI":   PRINT,
+	"TACNO":    TRUE,
+	"NETACNO":  FALSE,
+}
+
+func LookupIdent(ident string) Token {
+	if tok, ok := keywords[ident]; ok {
+		return tok
+	}
+	return IDENT
+}
+
 func (t Token) String() string {
 	return tokens[t]
 }
@@ -178,7 +197,10 @@ func (l *Lexer) Lex() (Position, Token, string) {
 				startPos := l.pos
 				l.backup()
 				lit := l.lexIdent()
-				return startPos, IDENT, lit
+
+				tok := LookupIdent(lit)
+
+				return startPos, tok, lit
 			} else {
 				return l.pos, ILLEGAL, string(r)
 			}
